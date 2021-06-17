@@ -1,5 +1,8 @@
 package com.example.simpletodo;
 
+import android.content.Context;
+import android.content.Intent;
+import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 
 import android.os.Bundle;
@@ -23,13 +26,15 @@ import java.util.List;
 
 
 public class MainActivity extends AppCompatActivity {
-
+    Context context;
     List<String> items;
 
     Button btnAdd;
     EditText etItem;
     RecyclerView rvItems;
     ItemsAdapter itemsAdapter;
+    public static final int REQUEST_CODE = 20;
+    public static final String TAG = "MainActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,10 +45,10 @@ public class MainActivity extends AppCompatActivity {
         etItem = findViewById(R.id.etItem);
         rvItems = findViewById(R.id.rvItems);
 
-
+        context = this;
         //etItem.setText("I'm doing this from Java");
 
-       loadItems();
+        loadItems();
 
 
         ItemsAdapter.OnLongClickListener onLongClickListener = new ItemsAdapter.OnLongClickListener() {
@@ -55,7 +60,24 @@ public class MainActivity extends AppCompatActivity {
                 saveItems();
             }
         };
-        itemsAdapter = new ItemsAdapter(items, onLongClickListener);
+
+        ItemsAdapter.OnClickListener onClickListener = new ItemsAdapter.OnClickListener() {
+            @Override
+            public void onItemClicked(int position) {
+                //   position = getAdapterPosition();
+
+                String toDoItem = items.get(position);
+                Log.i(TAG, "clicked a todo item!");
+                Intent intent = new Intent(context, ItemEditActivity.class);
+                intent.putExtra("toDoItem", toDoItem);
+                intent.putExtra("position", position);
+                // context.startActivity(intent);
+                startActivityForResult(intent, REQUEST_CODE);
+
+            }
+        };
+
+        itemsAdapter = new ItemsAdapter(items, onLongClickListener, onClickListener);
         rvItems.setAdapter(itemsAdapter);
         rvItems.setLayoutManager(new LinearLayoutManager(this));
 
@@ -75,6 +97,22 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        // REQUEST_CODE is defined above
+        if (resultCode == RESULT_OK && requestCode == REQUEST_CODE) {
+            Log.i(TAG, "received data back!");
+            // Extract name value from result extras
+            String todo = data.getExtras().getString("toDoItem");
+            int pos = data.getExtras().getInt("position", 0);
+            items.set(pos, todo);
+            itemsAdapter.notifyDataSetChanged();
+            // Toast the name to display temporarily on screen
+            //   Toast.makeText(context.this, name, Toast.LENGTH_SHORT).show();
+        }
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
     private File getDataFile() {
         return new File(getFilesDir(), "data.txt");
     }
@@ -91,11 +129,11 @@ public class MainActivity extends AppCompatActivity {
 
         //This function saves items by writing them into the data file
     }
-    private void saveItems(){
+
+    private void saveItems() {
         try {
             FileUtils.writeLines(getDataFile(), items);
-        }
-        catch (IOException e){
+        } catch (IOException e) {
             Log.e("MainActivity", "Error writing items", e);
         }
     }
